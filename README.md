@@ -1,0 +1,333 @@
+	//Pseudo code
+	<...User login...>
+<section class="user- login-section my-5 container">
+<div class="row">
+<div class="col- md-6 mx-auto">
+<div class="info-block p-4 shadow-sm">
+<h4 class="text-center mb-4">Login to Your Account</h4>
+{% if msg %}
+<!-- Check msg_type to display success or error message -->
+{% if msg_type == 'success' %}
+<div class="alert alert-success text-center">{{ msg }}</div>
+{% elif msg_type == 'error' %}
+<div class="alert alert-danger text-center">{{ msg }}</div>
+{% endif %}
+{% endif %}
+<form action="/userlogin" method="POST">
+<div class="form-group">
+<label for="email">Email Address</label>
+<input type="email" class="form-control" id="email" name="email" placeholder="Enter your email address" required>
+</div>
+<div class="form-group">
+
+<label for="password">Password</label>
+<input	type="password"	class="form-control" id="password"
+
+name="password" placeholder="Enter your password"
+required>
+</div>
+<div class="form-group text-center">
+<button type="submit" class="btn btn- primary">Login</button>
+</div>
+</form>
+<div class="text-center mt-3">
+<p>Don't have an account? <ahref="/registration" class="text- primary">New User? Register Here</a></p>
+</div>
+</div>
+</div>
+</div>
+</section>
+Admin Login
+<!-- Login Form Section -->
+<section class="user- login-section my-5 container">
+<div class="row">
+<div class="col- md-6 mx-auto">
+<div class="info-block p-4 shadow-sm">
+<h4 class="text-center mb-4">Login to Your Account</h4>
+<form action="/adminlogin" method="POST">
+<div class="form-group">
+<label for="email">Email Address</label>
+<input type="email" class="form-control" id="email" name="email" placeholder="Enter your email address" required>
+</div>
+<div class="form-group">
+<label for="password">Password</label>
+<input	type="password"	class="form-control"
+id="password" name="password" placeholder="Enter your password"
+required>
+</div>
+<div class="form-group text-center">
+<button type="submit" class="btn btn- primary">Login</button>
+</div>
+</form>
+</div>
+</div>
+</div>
+</section>
+Preprocessing
+import Papa from 'papaparse';
+import {AutismDataPoint, QuestionnaireResponse, ModelMetrics, ModelComparison } from '@/types/autism';
+// Convert questionnaire responses to numerical values
+export const responseToNumber = (response: QuestionnaireResponse): number => { const map = { never: 0, rarely: 1, sometimes: 2, often: 3, always: 4 };
+return map[response];
+};
+export const numberToResponse = (num: number): QuestionnaireResponse => {
+const responses: QuestionnaireResponse[] = ['never', 'rarely', 'sometimes', 'often', 'always'];
+ return responses[Math.max(0, Math.min(4, Math.round(num)))];
+ };
+// Load and parse CSV data
+export const loadAutismDataset = async (): Promise<AutismDataPoint[]> => { try {
+const response = await fetch('/autism_dataset.csv'); const csvText = await response.text();
+return new Promise((resolve, reject) => { Papa.parse<AutismDataPoint>(csvText, { header: true,
+skipEmptyLines: true, transform: (value, field) => {
+if (field === 'Age' || field === 'Total_Score') return parseInt(value); if (field === 'ASD_Label') return parseInt(value) as 0 | 1;
+return value;
+},
+complete: (results) => {
+if (results.errors.length > 0) {
+reject(new Error(`CSV parsing errors: ${results.errors.map(e => e.message).join(', ')}`));
+} else { resolve(results.data);
+}
+},
+error: (error) => reject(error)
+});
+});
+} catch (error) {
+throw new Error(`Failed to load dataset: ${error}`);
+}
+};
+// Simple logistic regression implementation export class SimpleLogisticRegression { private weights: number[] = [];
+private bias: number = 0; private learningRate = 0.01; private iterations = 1000;
+ private sigmoid(z: number): number { return 1 / (1 + Math.exp(-z));
+}
+fit(X: number[][], y: number[]): void { const m = X.length;
+const n = X[0].length;
+// Initialize weights
+this.weights = new Array(n).fill(0); this.bias = 0;
+// Gradient descent
+for (let iter = 0; iter < this.iterations; iter++) { const predictions = X.map(features => {
+const z = features.reduce((sum, feature, i) => sum + feature * this.weights[i], 0) + this.bias; return this.sigmoid(z);
+});
+// Calculate gradients
+const dw = new Array(n).fill(0); let db = 0;
+for (let i = 0; i < m; i++) {
+const error = predictions[i] - y[i]; for (let j = 0; j < n; j++) {
+dw[j] += error * X[i][j];
+}
+db += error;
+}
+// Update weights
+for (let j = 0; j < n; j++) {
+this.weights[j] -= (this.learningRate * dw[j]) / m;
+}
+this.bias -= (this.learningRate * db) / m;
+}
+}
+predict(X: number[][]): number[] { return X.map(features => {
+const z = features.reduce((sum, feature, i) => sum + feature * this.weights[i], 0) + this.bias; return this.sigmoid(z) >= 0.5 ? 1 : 0;
+});
+}
+predictProba(X: number[][]): number[] { return X.map(features => {
+const z = features.reduce((sum, feature, i) => sum + feature * this.weights[i], 0) + this.bias; return this.sigmoid(z);
+});
+}
+}
+// Simple Random Forest implementation (basic version) export class SimpleRandomForest {
+private trees: SimpleDecisionTree[] = []; private nTrees = 10;
+fit(X: number[][], y: number[]): void { this.trees = [];
+for (let i = 0; i < this.nTrees; i++) {
+// Bootstrap sampling
+const bootIndices = Array.from({ length: X.length }, () => Math.floor(Math.random() * X.length)
+);
+const bootX = bootIndices.map(idx => X[idx]); const bootY = bootIndices.map(idx => y[idx]); const tree = new SimpleDecisionTree(); tree.fit(bootX, bootY);
+this.trees.push(tree);
+}
+}
+predict(X: number[][]): number[] { return X.map(features => {
+const predictions = this.trees.map(tree => tree.predict([features])[0]); const sum = predictions.reduce((a, b) => a + b, 0);
+return sum >= this.nTrees / 2 ? 1 : 0;
+});
+}
+predictProba(X: number[][]): number[] { return X.map(features => {
+ const predictions = this.trees.map(tree => tree.predict([features])[0]); 
+ return predictions.reduce((a, b) => a + b, 0) / this.nTrees;
+});
+}
+}
+// Simple Decision Tree implementation class SimpleDecisionTree {
+private threshold = 0.5; private feature = 0; private prediction = 0;
+fit(X: number[][], y: number[]): void { if (X.length === 0) return;
+// Simple implementation: find best threshold for each feature let bestGini = 1;
+for (let f = 0; f < X[0].length; f++) {
+const values = X.map(x => x[f]).sort((a, b) => a - b); for (let i = 0; i < values.length - 1; i++) {
+const thresh = (values[i] + values[i + 1]) / 2;
+const leftY = y.filter((_, idx) => X[idx][f] <= thresh); const rightY = y.filter((_, idx) => X[idx][f] > thresh); if (leftY.length === 0 || rightY.length === 0) continue; const gini = this.calculateGini(leftY, rightY);
+if (gini < bestGini) { bestGini = gini; this.feature = f; this.threshold = thresh;
+}
+}
+}
+// Set prediction based on majority class
+const ones = y.filter(label => label === 1).length; this.prediction = ones > y.length / 2 ? 1 : 0;
+}
+private calculateGini(leftY: number[], rightY: number[]): number { const total = leftY.length + rightY.length;
+const leftGini = this.gini(leftY);
+const rightGini = this.gini(rightY);
+return (leftY.length / total) * leftGini + (rightY.length / total) * rightGini;
+}
+private gini(y: number[]): number { if (y.length === 0) return 0;
+const ones = y.filter(label => label === 1).length; const p1 = ones / y.length;
+const p0 = 1 - p1;
+return 1 - (p1 * p1 + p0 * p0);
+}
+predict(X: number[][]): number[] { return X.map(features => {
+// Simple prediction based on most common class in training return this.prediction;
+});
+}
+}
+// Prepare features for ML models with z-score normalization
+export const prepareFeatures = (data: AutismDataPoint[]): { X: number[][], y: number[] } => { const rawFeatures: number[][] = [];
+const labels: number[] = []; data.forEach(point => { const feature = [
+point.Age,
+point.Gender === 'M' ? 1 : 0, responseToNumber(point.Q1), responseToNumber(point.Q2), responseToNumber(point.Q3), responseToNumber(point.Q4), responseToNumber(point.Q5), responseToNumber(point.Q6), responseToNumber(point.Q7), responseToNumber(point.Q8), responseToNumber(point.Q9), responseToNumber(point.Q10),
+point.Total_Score,
+];
+rawFeatures.push(feature); labels.push(point.ASD_Label);
+});
+// Z-score normalization
+const features = rawFeatures[0].map((_, colIdx) => { const column = rawFeatures.map(row => row[colIdx]);
+const mean = column.reduce((a, b) => a + b, 0) / column.length;
+const std = Math.sqrt(column.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / column.length); return { mean, std };
+});
+const normalizedFeatures = rawFeatures.map(row => row.map((val, colIdx) => {
+const { mean, std } = features[colIdx]; return std === 0 ? 0 : (val - mean) / std;
+})
+);
+return { X: normalizedFeatures, y: labels };
+};
+// Train-test split
+export const trainTestSplit = (X: number[][], y: number[], testSize = 0.2): { XTrain: number[][], XTest: number[][], yTrain: number[], yTest: number[]
+} => {
+const indices = Array.from({ length: X.length }, (_, i) => i);
+// Shuffle indices
+for (let i = indices.length - 1; i > 0; i--) {
+const j = Math.floor(Math.random() * (i + 1)); [indices[i], indices[j]] = [indices[j], indices[i]];
+}
+const trainSize = Math.floor(X.length * (1 - testSize)); const trainIndices = indices.slice(0, trainSize);
+const testIndices = indices.slice(trainSize); return {
+XTrain: trainIndices.map(i => X[i]),
+XTest: testIndices.map(i => X[i]), 
+yTrain: trainIndices.map(i => y[i]),
+yTest: testIndices.map(i => y[i])
+};
+};
+// Calculate model metrics
+export const calculateMetrics = (yTrue: number[], yPred: number[]): ModelMetrics => { const tp = yTrue.filter((actual, i) => actual === 1 && yPred[i] === 1).length;
+const tn = yTrue.filter((actual, i) => actual === 0 && yPred[i] === 0).length; const fp = yTrue.filter((actual, i) => actual === 0 && yPred[i] === 1).length; const fn = yTrue.filter((actual, i) => actual === 1 && yPred[i] === 0).length; const accuracy = (tp + tn) / (tp + tn + fp + fn);
+const precision = tp === 0 ? 0 : tp / (tp + fp); const recall = tp === 0 ? 0 : tp / (tp + fn);
+const f1Score = precision + recall === 0 ? 0 : 2 * (precision * recall) / (precision + recall); return {
+accuracy, precision, recall, f1Score,
+confusionMatrix: [[tn, fp], [fn, tp]]
+};
+};
+// Train and compare multiple models including Transformer
+export	const	getModelComparisons	=	async	(data:	AutismDataPoint[],	testSize	=	0.2): Promise<ModelComparison[]> => {
+const { X, y } = prepareFeatures(data);
+const { XTrain, XTest, yTrain, yTest } = trainTestSplit(X, y, testSize); const models: ModelComparison[] = [];
+// Import Transformer model dynamically
+const { TabularTransformer } = await import('./transformerModel');
+// Transformer Model (Primary - matches project objectives) const transformer = new TabularTransformer({
+inputDim: X[0].length, hiddenDim: 64,
+numHeads: 4,
+numLayers: 2,
+learningRate: 0.001,
+epochs: 100
+});
+transformer.fit(XTrain, yTrain);
+const transformerPreds = transformer.predict(XTest);
+const transformerMetrics = calculateMetrics(yTest, transformerPreds); models.push({
+name: 'Transformer (Primary)',
+description: 'Attention-based deep learning model for tabular ASD screening data',
+...transformerMetrics
+});
+// Logistic Regression
+const lr = new SimpleLogisticRegression(); lr.fit(XTrain, yTrain);
+const lrPreds = lr.predict(XTest);
+const lrMetrics = calculateMetrics(yTest, lrPreds); models.push({
+name: 'Logistic Regression',
+description: 'Linear classification algorithm using sigmoid function',
+...lrMetrics
+});
+// Random Forest
+const rf = new SimpleRandomForest(); rf.fit(XTrain, yTrain);
+const rfPreds = rf.predict(XTest);
+const rfMetrics = calculateMetrics(yTest, rfPreds); models.push({
+name: 'Random Forest',
+description: 'Ensemble method using multiple decision trees',
+...rfMetrics
+});
+return models;
+};
+App.css
+#root {
+max-width: 1280px; margin: 0 auto; padding: 2rem;
+text-align: center;
+}
+.logo { height: 6em;
+padding: 1.5em; will-change: filter;
+transition: filter 300ms;
+}
+.logo:hover {
+filter: drop-shadow(0 0 2em #646cffaa);
+}
+.logo.react:hover {
+filter: drop-shadow(0 0 2em #61dafbaa);
+}
+@keyframes logo-spin { from {
+transform: rotate(0deg);
+}
+to {
+transform: rotate(360deg);
+}
+}
+@media (prefers-reduced-motion: no-preference) { a:nth-of-type(2) .logo {
+animation: logo-spin infinite 20s linear;
+}
+}
+.card { padding: 2em;
+}
+.read-the-docs {
+color: #888;
+}
+App.tsx
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner"; import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"; import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { ProtectedRoute } from "@/components/ProtectedRoute"; import Index from "./pages/Index";
+import Auth from "./pages/Auth";
+import AdminPanel from "./pages/AdminPanel"; import NotFound from "./pages/NotFound"; const queryClient = new QueryClient();
+const App = () => (
+<QueryClientProvider client={queryClient}>
+<TooltipProvider>
+<AuthProvider>
+<Toaster />
+<Sonner />
+<BrowserRouter>
+<Routes>
+<Route path="/auth" element={<Auth />} />
+<Route path="/admin" element={
+<ProtectedRoute requireAdmin>
+<AdminPanel />
+</ProtectedRoute>
+} />
+<Route path="/" element={
+<ProtectedRoute>
+<Index />
+</ProtectedRoute>
+} />
+{/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+<Route path="*" element={<NotFound />} />
+
+
+
+ 
+
